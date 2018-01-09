@@ -83,6 +83,7 @@
         , top_block_hash/0
         , top_header/0
         , top_header_hash/0
+        , top_state_trees/0
         ]).
 
 %% for tests
@@ -308,6 +309,10 @@ top_header_hash() ->
 reinit_chain() ->
     gen_server:call(?SERVER, reinit_chain).
 
+-spec top_state_trees() -> {ok, trees()} | error.
+top_state_trees() ->
+    gen_server:call(?SERVER, get_top_state_trees).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -387,6 +392,8 @@ handle_call(get_top_header,_From, State) ->
     {reply, aec_conductor_chain:get_top_header(State), State};
 handle_call(get_top_header_hash,_From, State) ->
     {reply, aec_conductor_chain:get_top_header_hash(State), State};
+handle_call(get_top_state_trees,_From, State) ->
+    {reply, aec_conductor_chain:get_top_state_trees(State), State};
 handle_call(get_total_difficulty,_From, State) ->
     {reply, aec_conductor_chain:get_total_difficulty(State), State};
 handle_call({has_block, Hash},_From, State) ->
