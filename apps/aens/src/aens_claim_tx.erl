@@ -80,7 +80,8 @@ check(#ns_claim_tx{account = AccountPubKey, nonce = Nonce,
 
     Checks =
         [fun() -> aetx_utils:check_account(AccountPubKey, Trees, Height, Nonce, Fee + BurnedFee) end,
-         fun() -> check_commitment(Name, NameNonce, AccountPubKey, Trees) end],
+         fun() -> check_commitment(Name, NameNonce, AccountPubKey, Trees) end,
+         fun() -> check_name(Name, Trees) end],
 
     case aeu_validation:run(Checks) of
         ok              -> {ok, Trees};
@@ -188,6 +189,17 @@ check_commitment(Name, NameNonce, AccountPubKey, Trees) ->
         none ->
             {error, name_not_preclaimed}
     end.
+
+check_name(Name, Trees) ->
+    NSTree = aec_trees:ns(Trees),
+    NHash = aens_hash:name_hash(Name),
+    case aens_state_tree:lookup_name(NHash, NSTree) of
+        {value, _} ->
+            {error, name_already_taken};
+        none ->
+            ok
+    end.
+
 
 version() ->
     ?NAME_CLAIM_TX_VSN.

@@ -18,6 +18,7 @@
          preclaim_negative/1,
          claim/1,
          claim_negative/1,
+         claim_race_negative/1,
          update/1,
          update_negative/1,
          transfer/1,
@@ -49,6 +50,7 @@ groups() ->
        preclaim_negative,
        claim,
        claim_negative,
+       claim_race_negative,
        update,
        update_negative,
        transfer,
@@ -61,14 +63,18 @@ groups() ->
 %%% Preclaim
 %%%===================================================================
 
-preclaim(_Cfg) ->
-    {PubKey, S1} = aens_test_utils:setup_new_account(aens_test_utils:new_state()),
+preclaim(Cfg) ->
+    State = case proplists:get_value(state, Cfg) of
+                undefined -> aens_test_utils:new_state();
+                State0 -> State0
+            end,
+    {PubKey, S1} = aens_test_utils:setup_new_account(State),
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
     Trees = aens_test_utils:trees(S1),
     Height = 1,
     Name = <<"foo.bar.test">>,
-    NameNonce = 12345678,
-    CHash = aens_hash:commitment_hash(Name, NameNonce),
+    NameSalt = rand:uniform(10000),
+    CHash = aens_hash:commitment_hash(Name, NameSalt),
 
     %% Create Preclaim tx and apply it on trees
     TxSpec = aens_test_utils:preclaim_tx_spec(PubKey, CHash, S1),
@@ -84,7 +90,7 @@ preclaim(_Cfg) ->
     CHash      = aens_commitments:id(C),
     PubKey     = aens_commitments:owner(C),
 
-    {PubKey, Name, NameNonce, S2}.
+    {PubKey, Name, NameSalt, S2}.
 
 preclaim_negative(Cfg) ->
     {PubKey, S1} = aens_test_utils:setup_new_account(aens_test_utils:new_state()),
@@ -114,8 +120,8 @@ preclaim_negative(Cfg) ->
         aens_preclaim_tx:check(Tx3, Trees, Height),
 
     %% Test commitment already present
-    {PubKey2, Name, NameNonce, S3} = preclaim(Cfg),
-    CHash2 = aens_hash:commitment_hash(Name, NameNonce),
+    {PubKey2, Name, NameSalt, S3} = preclaim(Cfg),
+    CHash2 = aens_hash:commitment_hash(Name, NameSalt),
     Trees3 = aens_test_utils:trees(S3),
     TxSpec4 = aens_test_utils:preclaim_tx_spec(PubKey2, CHash2, S3),
     {ok, Tx4} = aens_preclaim_tx:new(TxSpec4),
@@ -128,11 +134,11 @@ preclaim_negative(Cfg) ->
 %%%===================================================================
 
 claim(Cfg) ->
-    {PubKey, Name, NameNonce, S1} = preclaim(Cfg),
+    {PubKey, Name, NameSalt, S1} = preclaim(Cfg),
     Trees = aens_test_utils:trees(S1),
     Height = 1,
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
-    CHash = aens_hash:commitment_hash(Name, NameNonce),
+    CHash = aens_hash:commitment_hash(Name, NameSalt),
     NHash = aens_hash:name_hash(Name),
 
     %% Check commitment present
@@ -140,7 +146,7 @@ claim(Cfg) ->
     CHash      = aens_commitments:id(C),
 
     %% Create Claim tx and apply it on trees
-    TxSpec = aens_test_utils:claim_tx_spec(PubKey, Name, NameNonce, S1),
+    TxSpec = aens_test_utils:claim_tx_spec(PubKey, Name, NameSalt, S1),
     {ok, Tx} = aens_claim_tx:new(TxSpec),
     SignedTx = aec_tx_sign:sign(Tx, PrivKey),
 
@@ -158,13 +164,13 @@ claim(Cfg) ->
     {PubKey, NHash, S2}.
 
 claim_negative(Cfg) ->
-    {PubKey, Name, NameNonce, S1} = preclaim(Cfg),
+    {PubKey, Name, NameSalt, S1} = preclaim(Cfg),
     Trees = aens_test_utils:trees(S1),
     Height = 1,
 
     %% Test bad account key
     BadPubKey = <<42:65/unit:8>>,
-    TxSpec1 = aens_test_utils:claim_tx_spec(BadPubKey, Name, NameNonce, S1),
+    TxSpec1 = aens_test_utils:claim_tx_spec(BadPubKey, Name, NameSalt, S1),
     {ok, Tx1} = aens_claim_tx:new(TxSpec1),
     {error, account_not_found} =
         aens_claim_tx:check(Tx1, Trees, Height),
@@ -172,19 +178,19 @@ claim_negative(Cfg) ->
     %% Insufficient funds
     S2 = aens_test_utils:set_account_balance(PubKey, 0, S1),
     Trees2 = aens_test_utils:trees(S2),
-    TxSpec2 = aens_test_utils:claim_tx_spec(PubKey, Name, NameNonce, S1),
+    TxSpec2 = aens_test_utils:claim_tx_spec(PubKey, Name, NameSalt, S1),
     {ok, Tx2} = aens_claim_tx:new(TxSpec2),
     {error, insufficient_funds} =
         aens_claim_tx:check(Tx2, Trees2, Height),
 
     %% Test too high account nonce
-    TxSpec3 = aens_test_utils:claim_tx_spec(PubKey, Name, NameNonce, #{nonce => 0}, S1),
+    TxSpec3 = aens_test_utils:claim_tx_spec(PubKey, Name, NameSalt, #{nonce => 0}, S1),
     {ok, Tx3} = aens_claim_tx:new(TxSpec3),
     {error, account_nonce_too_high} =
         aens_claim_tx:check(Tx3, Trees, Height),
 
     %% Test commitment not found
-    TxSpec4 = aens_test_utils:claim_tx_spec(PubKey, Name, NameNonce + 1, S1),
+    TxSpec4 = aens_test_utils:claim_tx_spec(PubKey, Name, NameSalt + 1, S1),
     {ok, Tx4} = aens_claim_tx:new(TxSpec4),
     {error, name_not_preclaimed} =
         aens_claim_tx:check(Tx4, Trees, Height),
@@ -192,11 +198,25 @@ claim_negative(Cfg) ->
     %% Test commitment not owned
     {PubKey2, S3} = aens_test_utils:setup_new_account(S1),
     Trees3 = aens_test_utils:trees(S3),
-    TxSpec5 = aens_test_utils:claim_tx_spec(PubKey2, Name, NameNonce, S3),
+    TxSpec5 = aens_test_utils:claim_tx_spec(PubKey2, Name, NameSalt, S3),
     {ok, Tx5} = aens_claim_tx:new(TxSpec5),
     {error, commitment_not_owned} =
         aens_claim_tx:check(Tx5, Trees3, Height),
     ok.
+
+claim_race_negative(_Cfg) ->
+    %% The first claim
+    {_PubKey, _NHash, S1} = claim([]),
+
+    %% The second claim of the same name (hardcoded in preclaim) decomposed
+    {PubKey2, Name2, NameSalt2, S2} = preclaim([{state, S1}]),
+    Trees = aens_test_utils:trees(S2),
+    Height = 1,
+
+    %% Test bad account key
+    TxSpec1 = aens_test_utils:claim_tx_spec(PubKey2, Name2, NameSalt2, S2),
+    {ok, Tx1} = aens_claim_tx:new(TxSpec1),
+    {error, name_already_taken} = aens_claim_tx:check(Tx1, Trees, Height).
 
 %%%===================================================================
 %%% Update
@@ -446,8 +466,8 @@ revoke_negative(Cfg) ->
 %%%===================================================================
 
 prune_preclaim(Cfg) ->
-    {PubKey, Name, NameNonce, S1} = preclaim(Cfg),
-    CHash = aens_hash:commitment_hash(Name, NameNonce),
+    {PubKey, Name, NameSalt, S1} = preclaim(Cfg),
+    CHash = aens_hash:commitment_hash(Name, NameSalt),
     Trees2 = aens_test_utils:trees(S1),
     {value, C} = aens_state_tree:lookup_commitment(CHash, aec_trees:ns(Trees2)),
     CHash      = aens_commitments:id(C),

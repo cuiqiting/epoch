@@ -29,10 +29,10 @@
 %%%===================================================================
 
 -spec commitment_hash(binary(), integer()) -> commitment_hash().
-commitment_hash(Name, Nonce) ->
+commitment_hash(Name, Salt) ->
     NameHash = hash(Name),
-    NonceBin = int_to_bin(Nonce),
-    hash(<<NameHash/binary, NonceBin/binary>>).
+    SaltBin = int_to_bin(Salt),
+    hash(<<NameHash/binary, SaltBin/binary>>).
 
 -spec name_hash(aens_names:name()) -> name_hash().
 name_hash(Name) ->
