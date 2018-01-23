@@ -1380,7 +1380,7 @@ definitions:
     properties:
       name:
         type: string
-      name_nonce:
+      name_salt:
         type: integer
         format: int64
       fee:
@@ -1388,7 +1388,7 @@ definitions:
         format: int64
     required:
     - name
-    - name_nonce
+    - name_salt
     - fee
   NameUpdateTx:
     type: object
@@ -1665,13 +1665,13 @@ definitions:
           account: string
           nonce: integer
           name: string
-          name_nonce: integer
+          name_salt: integer
           fee: integer
         required:
         - account
         - nonce
         - name
-        - name_nonce
+        - name_salt
         - fee
   NameUpdateTxObject:
     allOf:

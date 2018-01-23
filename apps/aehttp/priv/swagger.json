@@ -1662,12 +1662,12 @@
     },
     "NameClaimTx" : {
       "type" : "object",
-      "required" : [ "fee", "name", "name_nonce" ],
+      "required" : [ "fee", "name", "name_salt" ],
       "properties" : {
         "name" : {
           "type" : "string"
         },
-        "name_nonce" : {
+        "name_salt" : {
           "type" : "integer",
           "format" : "int64"
         },

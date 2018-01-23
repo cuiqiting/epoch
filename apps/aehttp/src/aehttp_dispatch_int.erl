@@ -170,14 +170,14 @@ handle_request('PostNameClaimTx', #{'NameClaimTx' := NameClaimTxObj}, _Context) 
     case get_local_pubkey_with_next_nonce() of
         {ok, PubKey, Nonce} ->
             #{<<"name">>       := Name,
-              <<"name_nonce">> := NameNonce,
+              <<"name_salt">> := NameSalt,
               <<"fee">>        := Fee} = NameClaimTxObj,
             {ok, ClaimTx} =
                 aens_claim_tx:new(
                   #{account    => PubKey,
                     nonce      => Nonce,
                     name       => Name,
-                    name_nonce => NameNonce,
+                    name_salt => NameSalt,
                     fee        => Fee}),
             sign_and_push_to_mempool(ClaimTx),
             {200, [], #{name_hash => aec_base58c:encode(name, aens_hash:name_hash(Name))}};

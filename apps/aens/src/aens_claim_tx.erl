@@ -50,12 +50,12 @@
 new(#{account    := AccountPubKey,
       nonce      := Nonce,
       name       := Name,
-      name_nonce := NameNonce,
+      name_salt := NameSalt,
       fee        := Fee}) ->
     {ok, #ns_claim_tx{account    = AccountPubKey,
                       nonce      = Nonce,
                       name       = Name,
-                      name_nonce = NameNonce,
+                      name_salt = NameSalt,
                       fee        = Fee}}.
 
 -spec fee(claim_tx()) -> integer().
@@ -72,7 +72,7 @@ origin(#ns_claim_tx{account = AccountPubKey}) ->
 
 -spec check(claim_tx(), trees(), height()) -> {ok, trees()} | {error, term()}.
 check(#ns_claim_tx{account = AccountPubKey, nonce = Nonce,
-                   fee = Fee, name = Name, name_nonce = NameNonce}, Trees, Height) ->
+                   fee = Fee, name = Name, name_salt = NameSalt}, Trees, Height) ->
     %% TODO: Maybe include burned fee in tx fee. To do so, mechanism determining
     %% which part of fee goes to miner and what gets burned is needed.
     %% One option is to change tx:fee/1 callback to tx:fee_for_miner/1.
@@ -80,7 +80,7 @@ check(#ns_claim_tx{account = AccountPubKey, nonce = Nonce,
 
     Checks =
         [fun() -> aetx_utils:check_account(AccountPubKey, Trees, Height, Nonce, Fee + BurnedFee) end,
-         fun() -> check_commitment(Name, NameNonce, AccountPubKey, Trees) end,
+         fun() -> check_commitment(Name, NameSalt, AccountPubKey, Trees) end,
          fun() -> check_name(Name, Trees) end],
 
     case aeu_validation:run(Checks) of
@@ -90,7 +90,7 @@ check(#ns_claim_tx{account = AccountPubKey, nonce = Nonce,
 
 -spec process(claim_tx(), trees(), height()) -> {ok, trees()}.
 process(#ns_claim_tx{account = AccountPubKey, nonce = Nonce, fee = Fee,
-                     name = PlainName, name_nonce = NameNonce} = ClaimTx, Trees0, Height) ->
+                     name = PlainName, name_salt = NameSalt} = ClaimTx, Trees0, Height) ->
     AccountsTree0 = aec_trees:accounts(Trees0),
     NSTree0 = aec_trees:ns(Trees0),
 
@@ -99,7 +99,7 @@ process(#ns_claim_tx{account = AccountPubKey, nonce = Nonce, fee = Fee,
     {ok, Account1} = aec_accounts:spend(Account0, TotalFee, Nonce, Height),
     AccountsTree1 = aec_accounts_trees:enter(Account1, AccountsTree0),
 
-    CommitmentHash = aens_hash:commitment_hash(PlainName, NameNonce),
+    CommitmentHash = aens_hash:commitment_hash(PlainName, NameSalt),
     NSTree1 = aens_state_tree:delete_commitment(CommitmentHash, NSTree0),
 
     TTL = aec_governance:name_claim_max_expiration(),
@@ -119,14 +119,14 @@ signers(#ns_claim_tx{account = AccountPubKey}) ->
 serialize(#ns_claim_tx{account    = AccountPubKey,
                        nonce      = None,
                        name       = Name,
-                       name_nonce = NameNonce,
+                       name_salt = NameSalt,
                        fee        = Fee}) ->
     [#{<<"type">>       => type()},
      #{<<"vsn">>        => version()},
      #{<<"account">>    => AccountPubKey},
      #{<<"nonce">>      => None},
      #{<<"name">>       => Name},
-     #{<<"name_nonce">> => NameNonce},
+     #{<<"name_salt">> => NameSalt},
      #{<<"fee">>        => Fee}].
 
 -spec deserialize(list(map())) -> claim_tx().
@@ -135,12 +135,12 @@ deserialize([#{<<"type">>       := ?NAME_CLAIM_TX_TYPE},
              #{<<"account">>    := AccountPubKey},
              #{<<"nonce">>      := Nonce},
              #{<<"name">>       := Name},
-             #{<<"name_nonce">> := NameNonce},
+             #{<<"name_salt">> := NameSalt},
              #{<<"fee">>        := Fee}]) ->
     #ns_claim_tx{account    = AccountPubKey,
                  nonce      = Nonce,
                  name       = Name,
-                 name_nonce = NameNonce,
+                 name_salt = NameSalt,
                  fee        = Fee}.
 
 -spec type() -> binary().
@@ -151,14 +151,14 @@ type() ->
 for_client(#ns_claim_tx{account    = AccountPubKey,
                         nonce      = Nonce,
                         name       = Name,
-                        name_nonce = NameNonce,
+                        name_salt = NameSalt,
                         fee        = Fee}) ->
     #{<<"type">>       => <<"NameClaimTxObject">>, % swagger schema name
       <<"vsn">>        => version(),
       <<"account">>    => aec_base58c:encode(account_pubkey, AccountPubKey),
       <<"nonce">>      => Nonce,
       <<"name">>       => Name,
-      <<"name_nonce">> => NameNonce,
+      <<"name_salt">> => NameSalt,
       <<"fee">>        => Fee}.
 
 %%%===================================================================
@@ -177,9 +177,9 @@ name(#ns_claim_tx{name = Name}) ->
 %%% Internal functions
 %%%===================================================================
 
-check_commitment(Name, NameNonce, AccountPubKey, Trees) ->
+check_commitment(Name, NameSalt, AccountPubKey, Trees) ->
     NSTree = aec_trees:ns(Trees),
-    CH = aens_hash:commitment_hash(Name, NameNonce),
+    CH = aens_hash:commitment_hash(Name, NameSalt),
     case aens_state_tree:lookup_commitment(CH, NSTree) of
         {value, C} ->
             case aens_commitments:owner(C) =:= AccountPubKey of

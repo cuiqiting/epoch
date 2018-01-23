@@ -16,7 +16,7 @@
           account    :: pubkey(),
           nonce      :: integer(),
           name       :: binary(),
-          name_nonce :: integer(),
+          name_salt :: integer(),
           fee        :: integer()
          }).
 

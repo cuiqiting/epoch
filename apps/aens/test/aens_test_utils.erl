@@ -134,15 +134,15 @@ preclaim_tx_default_spec(PubKey, State) ->
 %%% Claim tx
 %%%===================================================================
 
-claim_tx_spec(PubKey, Name, NameNonce, State) ->
-    claim_tx_spec(PubKey, Name, NameNonce, #{}, State).
+claim_tx_spec(PubKey, Name, NameSalt, State) ->
+    claim_tx_spec(PubKey, Name, NameSalt, #{}, State).
 
-claim_tx_spec(PubKey, Name, NameNonce, Spec0, State) ->
+claim_tx_spec(PubKey, Name, NameSalt, Spec0, State) ->
     Spec = maps:merge(claim_tx_default_spec(PubKey, State), Spec0),
     #{account    => PubKey,
       nonce      => maps:get(nonce, Spec),
       name       => Name,
-      name_nonce => NameNonce,
+      name_salt => NameSalt,
       fee        => maps:get(fee, Spec)}.
 
 claim_tx_default_spec(PubKey, State) ->
