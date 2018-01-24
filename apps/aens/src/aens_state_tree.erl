@@ -142,7 +142,7 @@ int_prune({HeightLower, Id, Mod}, CurrentHeight, Cache, MTree, ExpiredAcc) ->
 do_run_elapsed(#name{hash = NameHash, status = claimed}, NamesTree0, Height) ->
     Name0 = aens_state_tree:get_name(NameHash, NamesTree0),
     TTL = aec_governance:name_protection_period(),
-    Name1 = aens_names:revoke(Name0, TTL, Height),
+    Name1 = aens_names:revoke(Name0, TTL, Height-1),
     NamesTree1 = aens_state_tree:enter_name(Name1, NamesTree0),
     {ok, NamesTree1};
 do_run_elapsed(#name{hash = NameHash, status = revoked}, NamesTree0, _Height) ->
