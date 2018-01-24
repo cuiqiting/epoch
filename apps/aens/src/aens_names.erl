@@ -85,7 +85,7 @@ serialize(#name{} = N) ->
                   #{<<"expires">>  => expires(N)},
                   #{<<"status">>   => status(N)},
                   #{<<"ttl">>      => ttl(N)},
-                  #{<<"pointers">> => pointers(N)}]).
+                  #{<<"pointers">> => jsx:encode(pointers(N))}]).
 
 -spec deserialize(binary()) -> name().
 deserialize(Bin) ->
@@ -103,7 +103,7 @@ deserialize(Bin) ->
           expires  = Expires,
           status   = binary_to_existing_atom(Status, utf8),
           ttl      = TTL,
-          pointers = Pointers}.
+          pointers = jsx:decode(Pointers,[{labels, atom}])}.
 
 %%%===================================================================
 %%% Getters
@@ -118,7 +118,7 @@ status(N) -> N#name.status.
 -spec expires(name()) -> height().
 expires(N) -> N#name.expires.
 
--spec pointers(name()) -> binary().
+-spec pointers(name()) -> list().
 pointers(N) -> N#name.pointers.
 
 -spec ttl(name()) -> integer().

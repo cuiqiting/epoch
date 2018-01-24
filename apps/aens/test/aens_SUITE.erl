@@ -59,6 +59,8 @@ groups() ->
        revoke_negative]}
     ].
 
+-define(NAME, <<"foo.bar.test">>).
+
 %%%===================================================================
 %%% Preclaim
 %%%===================================================================
@@ -72,7 +74,7 @@ preclaim(Cfg) ->
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
     Trees = aens_test_utils:trees(S1),
     Height = 1,
-    Name = <<"foo.bar.test">>,
+    Name = ?NAME,
     NameSalt = rand:uniform(10000),
     CHash = aens_hash:commitment_hash(Name, NameSalt),
 
@@ -230,11 +232,11 @@ update(Cfg) ->
 
     %% Check name present, but neither pointers nor name TTL set
     {value, N} = aens_state_tree:lookup_name(NHash, aec_trees:ns(Trees)),
-    <<>> = aens_names:pointers(N),
+    [] = aens_names:pointers(N),
     0    = aens_names:ttl(N),
 
     %% Create Update tx and apply it on trees
-    Pointers = <<"pointers_to_be_changed_to_dict">>,
+    Pointers = [{account_pubkey, <<"aecore_suite_utils">>}],
     NameTTL  = 90000,
     TxSpec = aens_test_utils:update_tx_spec(
                PubKey, NHash, #{pointers => Pointers, name_ttl => NameTTL}, S1),

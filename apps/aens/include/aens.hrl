@@ -18,4 +18,4 @@
          expires         :: height(),
          status          :: name_status(),
          ttl      = 0    :: integer(),
-         pointers = <<>> :: binary()}).
+         pointers = []   :: list()}).

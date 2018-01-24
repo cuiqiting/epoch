@@ -25,7 +25,7 @@
           nonce     :: integer(),
           name_hash :: binary(),
           name_ttl  :: integer(),
-          pointers  :: binary(),
+          pointers  :: [{account_pubkey,binary()}],
           ttl       :: integer(),
           fee       :: integer()
          }).

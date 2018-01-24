@@ -125,7 +125,7 @@ serialize(#ns_update_tx{account   = AccountPubKey,
      #{<<"nonce">>    => Nonce},
      #{<<"hash">>     => NameHash},
      #{<<"name_ttl">> => NameTTL},
-     #{<<"pointers">> => Pointers},
+     #{<<"pointers">> => jsx:encode(Pointers)},
      #{<<"ttl">>      => TTL},
      #{<<"fee">>      => Fee}].
 
@@ -143,7 +143,7 @@ deserialize([#{<<"type">>     := ?NAME_UPDATE_TX_TYPE},
                   nonce     = Nonce,
                   name_hash = NameHash,
                   name_ttl  = NameTTL,
-                  pointers  = Pointers,
+                  pointers  = jsx:decode(Pointers,[{labels, atom}]),
                   ttl       = TTL,
                   fee       = Fee}.
 
@@ -177,7 +177,7 @@ for_client(#ns_update_tx{account   = AccountPubKey,
 name_ttl(#ns_update_tx{name_ttl = NameTTL}) ->
     NameTTL.
 
--spec pointers(update_tx()) -> binary().
+-spec pointers(update_tx()) -> list().
 pointers(#ns_update_tx{pointers = Pointers}) ->
     Pointers.
 

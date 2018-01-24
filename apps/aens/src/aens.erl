@@ -23,18 +23,27 @@
 
 -spec resolve(atom(), binary()) -> {ok, binary} | {error, atom()}.
 resolve(Type, Binary) ->
-    %% TODO: add validation
-    case binary:match(Binary, ?LABEL_SEPARATOR) of
-        nomatch ->
+    case lists:reverse(binary:split(Binary, ?LABEL_SEPARATOR, [global, trim])) of
+        [Binary] ->
             aec_base58c:safe_decode(Type, Binary);
-        {_,_} ->
-            StateTrees = aec_conductor:top_state_trees(),
-            NameTree = aec_trees:ns(StateTrees),
-            case get_name(Binary, NameTree) of
-                #{<<"pointers">> := Pointers} ->
-                    {ok, proplists:get_value(Type, Pointers)};
-                {error, _} = Err ->
-                    Err
+        [RegistrarNamespace|_Namespace] ->
+            %% When we have more registrars, pick faster and still gov friendly structure
+            %% If we allow to purchase registrars, this will live in regular tree
+            case [RN || RN <- aec_governance:name_registrars(), RN =:= RegistrarNamespace] of
+                [] ->
+                    {error, registrar_unknown};
+                _ ->
+                    StateTrees = aec_conductor:top_state_trees(),
+                    NameTree = aec_trees:ns(StateTrees),
+                    case get_name(Binary, NameTree) of
+                        #{<<"pointers">> := Pointers} ->
+                            case proplists:get_value(Type, Pointers) of
+                                undefined -> {error, type_not_found};
+                                Val -> {ok, Val}
+                            end;
+                        {error, _} = Err ->
+                            Err
+                    end
             end
     end.
 
