@@ -152,6 +152,10 @@ int_prune({HeightLower, Id, Mod}, NextBlockHeight, Cache, MTree, ExpiredAcc) ->
 %%                           update
 %%
 
+do_run_elapsed(#name{expires = ExpirationBlockHeight}, NamesTree0, NextBlockHeight)
+    when ExpirationBlockHeight /= NextBlockHeight-1 ->
+    %% INFO: Do nothing. Name was updated and we triggered old cache event.
+    {ok, NamesTree0};
 do_run_elapsed(#name{hash = NameHash, status = claimed, expires = ExpirationBlockHeight},
                NamesTree0, NextBlockHeight) when ExpirationBlockHeight == NextBlockHeight-1 ->
     Name0 = aens_state_tree:get_name(NameHash, NamesTree0),
@@ -159,11 +163,8 @@ do_run_elapsed(#name{hash = NameHash, status = claimed, expires = ExpirationBloc
     Name1 = aens_names:revoke(Name0, TTL, ExpirationBlockHeight),
     NamesTree1 = aens_state_tree:enter_name(Name1, NamesTree0),
     {ok, NamesTree1};
-do_run_elapsed(#name{status = claimed, expires = ExpirationBlockHeight}, NamesTree0, NextBlockHeight)
-    when ExpirationBlockHeight >= NextBlockHeight ->
-    %% INFO: Do nothing. Name was extended using update transaction.
-    {ok, NamesTree0};
-do_run_elapsed(#name{hash = NameHash, status = revoked}, NamesTree0, _Height) ->
+do_run_elapsed(#name{hash = NameHash, status = revoked, expires = ExpirationBlockHeight},
+    NamesTree0, NextBlockHeight) when ExpirationBlockHeight == NextBlockHeight-1  ->
     NamesTree1 = aens_state_tree:delete_name(NameHash, NamesTree0),
     {ok, NamesTree1};
 do_run_elapsed(#commitment{hash = Hash}, NamesTree0, _Height) ->
