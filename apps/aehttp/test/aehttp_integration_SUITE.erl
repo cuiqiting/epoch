@@ -1364,7 +1364,7 @@ naming_system_manage_name(_Config) ->
     %% Check that name entry is present
     {ok, 200, #{<<"name">>     := Name,
                 <<"name_ttl">> := 0,
-                <<"pointers">> := <<>>}} = get_name(Name),
+                <<"pointers">> := []}} = get_name(Name),
 
     %% Submit name updated tx and check it is in mempool
     {ok, 200, _}     = post_name_update_tx(NHash, NameTTL, Pointers, TTL, Fee),
