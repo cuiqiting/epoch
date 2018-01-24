@@ -62,9 +62,9 @@ empty() ->
     #ns_tree{mtree = MTree}.
 
 -spec prune(block_height(), tree()) -> tree().
-prune(Height, #ns_tree{} = Tree) ->
-    {Tree1, ExpiredActions} = int_prune(Height - 1, Tree),
-    run_elapsed(ExpiredActions, Tree1, Height).
+prune(NextBlockHeight, #ns_tree{} = Tree) ->
+    {Tree1, ExpiredActions} = int_prune(NextBlockHeight - 1, Tree),
+    run_elapsed(ExpiredActions, Tree1, NextBlockHeight).
 
 run_elapsed([], Tree, _) ->
     Tree;
@@ -118,39 +118,57 @@ root_hash(#ns_tree{mtree = MTree}) ->
 %%% Internal functions
 %%%===================================================================
 
-int_prune(CurrentHeight, #ns_tree{cache = Cache, mtree = MTree} = Tree) ->
-    case cache_safe_peek(Cache) of
-        {H, _} when H > CurrentHeight -> {Tree, []};
-        Other ->
-            {Cache1, Mtree1, ExpiredActions} = int_prune(Other, CurrentHeight, Cache, MTree, []),
-            {Tree#ns_tree{ cache = Cache1, mtree = Mtree1}, ExpiredActions}
-    end.
+int_prune(NextBlockHeight, #ns_tree{cache = Cache, mtree = MTree} = Tree) ->
+    {Cache1, Mtree1, ExpiredActions} = int_prune(cache_safe_peek(Cache), NextBlockHeight, Cache, MTree, []),
+    {Tree#ns_tree{ cache = Cache1, mtree = Mtree1}, ExpiredActions}.
 
-int_prune(none, _CurrentHeight, Cache, MTree, ExpiredAcc) ->
+int_prune(none, _NextBlockHeight, Cache, MTree, ExpiredAcc) ->
     {Cache, MTree, lists:reverse(ExpiredAcc)};
-int_prune({Height1,_Id,_Mod}, CurrentHeight, Cache, MTree, ExpiredAcc) when CurrentHeight < Height1 ->
+int_prune({Height1,_Id,_Mod}, NextBlockHeight, Cache, MTree, ExpiredAcc) when NextBlockHeight < Height1 ->
     {Cache, MTree, lists:reverse(ExpiredAcc)};
-int_prune({HeightLower, Id, Mod}, CurrentHeight, Cache, MTree, ExpiredAcc) ->
+int_prune({HeightLower, Id, Mod}, NextBlockHeight, Cache, MTree, ExpiredAcc) ->
     {{HeightLower, Id, Mod}, Cache1} = cache_pop(Cache),
     case aeu_mtrees:lookup(Id, MTree) of
         {value, ExpiredAction} ->
-            int_prune(cache_safe_peek(Cache1), CurrentHeight, Cache1, MTree, [{Mod, ExpiredAction}|ExpiredAcc]);
+            int_prune(cache_safe_peek(Cache1), NextBlockHeight, Cache1, MTree, [{Mod, ExpiredAction}|ExpiredAcc]);
         none ->
-            int_prune(cache_safe_peek(Cache1), CurrentHeight, Cache1, MTree, ExpiredAcc)
+            int_prune(cache_safe_peek(Cache1), NextBlockHeight, Cache1, MTree, ExpiredAcc)
     end.
 
-do_run_elapsed(#name{hash = NameHash, status = claimed}, NamesTree0, Height) ->
+%% INFO: do_run_elapsed/3 implements 'expire' driven transitions:
+%%
+%%                   expire
+%%       unclaimed <-------- revoked
+%%           | ^              ^^
+%%           | |              || expire
+%%           | | expire       ||
+%% pre-claim | |              ||  _
+%%           | |       revoke || | | transfer
+%%           v |              || | v
+%%      pre-claimed -------> claimed
+%%                   claim    | ^
+%%                            | |
+%%                             -
+%%                           update
+%%
+
+do_run_elapsed(#name{hash = NameHash, status = claimed, expires = ExpirationBlockHeight},
+               NamesTree0, NextBlockHeight) when ExpirationBlockHeight == NextBlockHeight-1 ->
     Name0 = aens_state_tree:get_name(NameHash, NamesTree0),
     TTL = aec_governance:name_protection_period(),
-    Name1 = aens_names:revoke(Name0, TTL, Height-1),
+    Name1 = aens_names:revoke(Name0, TTL, ExpirationBlockHeight),
     NamesTree1 = aens_state_tree:enter_name(Name1, NamesTree0),
     {ok, NamesTree1};
+do_run_elapsed(#name{status = claimed, expires = ExpirationBlockHeight}, NamesTree0, NextBlockHeight)
+    when ExpirationBlockHeight >= NextBlockHeight ->
+    %% INFO: Do nothing. Name was extended using update transaction.
+    {ok, NamesTree0};
 do_run_elapsed(#name{hash = NameHash, status = revoked}, NamesTree0, _Height) ->
     NamesTree1 = aens_state_tree:delete_name(NameHash, NamesTree0),
     {ok, NamesTree1};
 do_run_elapsed(#commitment{hash = Hash}, NamesTree0, _Height) ->
-    %% We delete in both cases when name is claimed or not claimed
-    %% when it expires
+    %% INFO: We delete in both cases when name is claimed or not claimed
+    %%       when it expires
     NamesTree1 = aens_state_tree:delete_commitment(Hash, NamesTree0),
     {ok, NamesTree1}.
 
