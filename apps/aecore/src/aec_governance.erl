@@ -10,6 +10,7 @@
          name_claim_burned_fee/0,
          name_claim_max_expiration/0,
          name_protection_period/0,
+         name_claim_preclaim_delta/0,
          name_registrars/0]).
 
 -define(BLOCKS_TO_CHECK_DIFFICULTY_COUNT, 10).
@@ -49,6 +50,9 @@ name_claim_max_expiration() ->
 
 name_protection_period() ->
     2016.
+
+name_claim_preclaim_delta() ->
+    1.
 
 name_registrars() ->
     [<<"aet">>, <<"test">>].

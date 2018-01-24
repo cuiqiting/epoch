@@ -8,7 +8,9 @@
 -record(commitment,
         {hash    :: binary(),
          owner   :: pubkey(),
-         expires :: height()}).
+         created :: height(),
+         expires :: height()
+         }).
 
 -type name_status() :: claimed | revoked.
 

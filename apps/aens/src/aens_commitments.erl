@@ -18,6 +18,7 @@
 
 %% Getters
 -export([expires/1,
+         created/1,
          hash/1,
          owner/1]).
 
@@ -50,6 +51,7 @@ new(PreclaimTx, Expiration, BlockHeight) ->
     %% TODO: add assertions on fields, similarily to what is done in aeo_oracles:new/2
     #commitment{hash    = aens_preclaim_tx:commitment(PreclaimTx),
                 owner   = aens_preclaim_tx:account(PreclaimTx),
+                created = BlockHeight,
                 expires = Expires}.
 
 -spec serialize(commitment()) -> binary().
@@ -58,6 +60,7 @@ serialize(#commitment{} = C) ->
                   #{<<"vsn">>     => ?COMMITMENT_VSN},
                   #{<<"hash">>    => hash(C)},
                   #{<<"owner">>   => owner(C)},
+                  #{<<"created">>   => created(C)},
                   #{<<"expires">> => expires(C)}]).
 
 -spec deserialize(binary()) -> commitment().
@@ -67,9 +70,11 @@ deserialize(Bin) ->
      #{<<"vsn">>     := ?COMMITMENT_VSN},
      #{<<"hash">>    := Hash},
      #{<<"owner">>   := Owner},
+     #{<<"created">> := Created},
      #{<<"expires">> := Expires}] = List,
     #commitment{hash    = Hash,
                 owner   = Owner,
+                created = Created,
                 expires = Expires}.
 
 %%%===================================================================
@@ -78,6 +83,9 @@ deserialize(Bin) ->
 
 -spec expires(commitment()) -> height().
 expires(C) -> C#commitment.expires.
+
+-spec created(commitment()) -> height().
+created(C) -> C#commitment.created.
 
 -spec hash(commitment()) -> aens_hash:commitment_hash().
 hash(C) -> C#commitment.hash.

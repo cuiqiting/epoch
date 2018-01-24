@@ -74,20 +74,20 @@ run_elapsed([{Mod, Serialized}|Expired], Tree, Height) ->
     run_elapsed(Expired, Tree1, Height).
 
 -spec enter_commitment(commitment(), tree()) -> tree().
-enter_commitment(C, Tree) ->
-    Id = aens_commitments:id(C),
-    Serialized = aens_commitments:serialize(C),
-    Expiration = aens_commitments:expires(C),
+enter_commitment(Commitment, Tree) ->
+    Id = aens_commitments:id(Commitment),
+    Serialized = aens_commitments:serialize(Commitment),
+    Expiration = aens_commitments:expires(Commitment),
     %% TODO: consider two trees (names vs pre-claims/commitments)
     Cache1 = cache_push(Expiration, Id, aens_commitments, Tree#ns_tree.cache),
     MTree1 = aeu_mtrees:insert(Id, Serialized, Tree#ns_tree.mtree),
     Tree#ns_tree{cache = Cache1, mtree = MTree1}.
 
 -spec enter_name(name(), tree()) -> tree().
-enter_name(N, Tree) ->
-    Id = aens_names:id(N),
-    Serialized = aens_names:serialize(N),
-    Expiration = aens_names:expires(N),
+enter_name(Name, Tree) ->
+    Id = aens_names:id(Name),
+    Serialized = aens_names:serialize(Name),
+    Expiration = aens_names:expires(Name),
     Cache1 = cache_push(Expiration, Id, aens_names, Tree#ns_tree.cache),
     MTree1 = aeu_mtrees:enter(Id, Serialized, Tree#ns_tree.mtree),
     Tree#ns_tree{cache = Cache1, mtree = MTree1}.

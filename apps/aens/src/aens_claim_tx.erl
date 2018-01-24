@@ -80,7 +80,7 @@ check(#ns_claim_tx{account = AccountPubKey, nonce = Nonce,
 
     Checks =
         [fun() -> aetx_utils:check_account(AccountPubKey, Trees, Height, Nonce, Fee + BurnedFee) end,
-         fun() -> check_commitment(Name, NameSalt, AccountPubKey, Trees) end,
+         fun() -> check_commitment(Name, NameSalt, AccountPubKey, Trees, Height) end,
          fun() -> check_name(Name, Trees) end],
 
     case aeu_validation:run(Checks) of
@@ -177,13 +177,18 @@ name(#ns_claim_tx{name = Name}) ->
 %%% Internal functions
 %%%===================================================================
 
-check_commitment(Name, NameSalt, AccountPubKey, Trees) ->
+check_commitment(Name, NameSalt, AccountPubKey, Trees, Height) ->
     NSTree = aec_trees:ns(Trees),
     CH = aens_hash:commitment_hash(Name, NameSalt),
     case aens_state_tree:lookup_commitment(CH, NSTree) of
         {value, C} ->
             case aens_commitments:owner(C) =:= AccountPubKey of
-                true  -> ok;
+                true  ->
+                    CreatedAt = aens_commitments:created(C),
+                    Delta = aec_governance:name_claim_preclaim_delta(),
+                    if CreatedAt + Delta =< Height -> ok;
+                       true -> {error, commitment_delta_too_small}
+                    end;
                 false -> {error, commitment_not_owned}
             end;
         none ->

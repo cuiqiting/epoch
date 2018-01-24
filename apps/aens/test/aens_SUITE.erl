@@ -60,6 +60,7 @@ groups() ->
     ].
 
 -define(NAME, <<"foo.bar.test">>).
+-define(PRE_CLAIM_HEIGHT, 1).
 
 %%%===================================================================
 %%% Preclaim
@@ -73,7 +74,7 @@ preclaim(Cfg) ->
     {PubKey, S1} = aens_test_utils:setup_new_account(State),
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT,
     Name = ?NAME,
     NameSalt = rand:uniform(10000),
     CHash = aens_hash:commitment_hash(Name, NameSalt),
@@ -82,7 +83,6 @@ preclaim(Cfg) ->
     TxSpec = aens_test_utils:preclaim_tx_spec(PubKey, CHash, S1),
     {ok, Tx} = aens_preclaim_tx:new(TxSpec),
     SignedTx = aec_tx_sign:sign(Tx, PrivKey),
-
     {ok, [SignedTx], Trees1} = aec_tx:apply_signed([SignedTx], Trees, Height),
     S2 = aens_test_utils:set_trees(Trees1, S1),
 
@@ -138,7 +138,7 @@ preclaim_negative(Cfg) ->
 claim(Cfg) ->
     {PubKey, Name, NameSalt, S1} = preclaim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT + 1,
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
     CHash = aens_hash:commitment_hash(Name, NameSalt),
     NHash = aens_hash:name_hash(Name),
@@ -168,7 +168,12 @@ claim(Cfg) ->
 claim_negative(Cfg) ->
     {PubKey, Name, NameSalt, S1} = preclaim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT,
+
+    TxSpec = aens_test_utils:claim_tx_spec(PubKey, Name, NameSalt, S1),
+    {ok, Tx0} = aens_claim_tx:new(TxSpec),
+    {error, commitment_delta_too_small} =
+        aens_claim_tx:check(Tx0, Trees, Height),
 
     %% Test bad account key
     BadPubKey = <<42:65/unit:8>>,
@@ -213,7 +218,7 @@ claim_race_negative(_Cfg) ->
     %% The second claim of the same name (hardcoded in preclaim) decomposed
     {PubKey2, Name2, NameSalt2, S2} = preclaim([{state, S1}]),
     Trees = aens_test_utils:trees(S2),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT + 1,
 
     %% Test bad account key
     TxSpec1 = aens_test_utils:claim_tx_spec(PubKey2, Name2, NameSalt2, S2),
@@ -227,7 +232,7 @@ claim_race_negative(_Cfg) ->
 update(Cfg) ->
     {PubKey, NHash, S1} = claim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT+1,
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
 
     %% Check name present, but neither pointers nor name TTL set
@@ -254,7 +259,7 @@ update(Cfg) ->
 update_negative(Cfg) ->
     {PubKey, NHash, S1} = claim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT+1,
 
     %% Test TTL too high
     MaxTTL = aec_governance:name_claim_max_expiration(),
@@ -315,7 +320,7 @@ update_negative(Cfg) ->
 transfer(Cfg) ->
     {PubKey, NHash, S1} = claim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT+1,
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
 
     %% Check name present
@@ -340,7 +345,7 @@ transfer(Cfg) ->
 transfer_negative(Cfg) ->
     {PubKey, NHash, S1} = claim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT+1,
 
     %% Test bad account key
     BadPubKey = <<42:65/unit:8>>,
@@ -394,7 +399,7 @@ transfer_negative(Cfg) ->
 revoke(Cfg) ->
     {PubKey, NHash, S1} = claim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT+1,
     PrivKey = aens_test_utils:priv_key(PubKey, S1),
 
     %% Check name present
@@ -416,7 +421,7 @@ revoke(Cfg) ->
 revoke_negative(Cfg) ->
     {PubKey, NHash, S1} = claim(Cfg),
     Trees = aens_test_utils:trees(S1),
-    Height = 1,
+    Height = ?PRE_CLAIM_HEIGHT+1,
 
     %% Test bad account key
     BadPubKey = <<42:65/unit:8>>,
